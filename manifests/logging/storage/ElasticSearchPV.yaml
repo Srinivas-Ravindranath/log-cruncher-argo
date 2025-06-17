@@ -9,7 +9,7 @@ spec:
     storage: 10Gi
   accessModes:
     - ReadWriteOnce
-  storageClassName: ElasticSearchStorage
+  storageClassName: elasticsearch-storage
   hostPath:
     path: /mnt/data/elasticsearch
     type: DirectoryOrCreate

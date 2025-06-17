@@ -17,6 +17,9 @@ kind: StatefulSet
 metadata:
   name: elasticsearch
   namespace: logging
+  annotations:
+    # force Argo CD to delete+recreate this resource instead of patching
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   serviceName: elasticsearch
   replicas: 1
