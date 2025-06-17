@@ -1,3 +1,4 @@
+# manifests/logging/01-pv-elasticsearch.yaml
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -9,8 +10,16 @@ spec:
     storage: 15Gi
   accessModes:
     - ReadWriteOnce
-  storageClassName: elasticsearch-storage    # ← lower-case
+  storageClassName: elasticsearch-storage
   hostPath:
     path: /mnt/data/elasticsearch
-    type: DirectoryOrCreate                 # ← auto-create the dir
+    type: DirectoryOrCreate
   persistentVolumeReclaimPolicy: Delete
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - worker-node-1
