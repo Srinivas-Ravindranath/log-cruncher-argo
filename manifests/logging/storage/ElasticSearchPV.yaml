@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: elasticsearch-pv
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ElasticSearchStorage
+  hostPath:
+    path: /mnt/data/elasticsearch
+    type: DirectoryOrCreate
+  persistentVolumeReclaimPolicy: Delete

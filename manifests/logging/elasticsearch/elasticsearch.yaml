@@ -59,7 +59,8 @@ spec:
   - metadata:
       name: data
     spec:
+      storageClassName: ElasticSearchStorage
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 10Gi
+          storage: 15Gi
