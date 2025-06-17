@@ -3,14 +3,14 @@ kind: PersistentVolume
 metadata:
   name: elasticsearch-pv
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   capacity:
-    storage: 10Gi
+    storage: 15Gi
   accessModes:
     - ReadWriteOnce
-  storageClassName: elasticsearch-storage
+  storageClassName: elasticsearch-storage    # ← lower-case
   hostPath:
     path: /mnt/data/elasticsearch
-    type: DirectoryOrCreate
+    type: DirectoryOrCreate                 # ← auto-create the dir
   persistentVolumeReclaimPolicy: Delete
