@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: git@github.com:Srinivas-Ravindranath/log-cruncher-argo.git
-    targetRevision: HEAD
+    targetRevision: dev
     path: manifests/logging
   destination:
     server: https://kubernetes.default.svc
