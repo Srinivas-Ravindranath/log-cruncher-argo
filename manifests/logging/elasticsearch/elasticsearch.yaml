@@ -1,10 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: logging
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+  - port: 9200
+    name: rest
+  - port: 9300
+    name: inter-node
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: elasticsearch
   namespace: logging
-  annotations:
-    argocd.argoproj.io/sync-options: Replace=true
 spec:
   serviceName: elasticsearch
   replicas: 1
@@ -16,54 +28,103 @@ spec:
       labels:
         app: elasticsearch
     spec:
+      # Important: Set security context at pod level
       securityContext:
+        fsGroup: 1000
         runAsUser: 1000
-        fsGroup:   1000
+        runAsNonRoot: true
 
       initContainers:
-      - name: fix-perms
-        image: busybox:latest
+      # Fix permissions and clean up any stale lock files
+      - name: fix-permissions
+        image: busybox:1.36
         command:
-          - sh
-          - -c
-          - |
-            chown -R 1000:1000 /usr/share/elasticsearch/data
+        - sh
+        - -c
+        - |
+          echo "Fixing permissions..."
+          chown -R 1000:1000 /usr/share/elasticsearch/data
+          echo "Removing any stale lock files..."
+          rm -f /usr/share/elasticsearch/data/node.lock
+          rm -rf /usr/share/elasticsearch/data/nodes/*/node.lock
+          echo "Creating required directories..."
+          mkdir -p /usr/share/elasticsearch/data
+          chmod -R 775 /usr/share/elasticsearch/data
+          echo "Permissions fixed!"
+        securityContext:
+          runAsUser: 0  # Run as root for permission fixes
         volumeMounts:
-          - name: data
-            mountPath: /usr/share/elasticsearch/data
+        - name: data
+          mountPath: /usr/share/elasticsearch/data
+
+      # Increase vm.max_map_count
+      - name: increase-vm-max-map-count
+        image: busybox:1.36
+        command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        securityContext:
+          privileged: true
+          runAsUser: 0
 
       containers:
       - name: elasticsearch
         image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-        securityContext:
-          capabilities:
-            add:
-              - IPC_LOCK
         ports:
-          - containerPort: 9200
-            name: rest
-          - containerPort: 9300
-            name: inter-node
+        - containerPort: 9200
+          name: rest
+        - containerPort: 9300
+          name: inter-node
         env:
-          - name: cluster.name
-            value: log-cruncher-cluster
-          - name: discovery.type
-            value: single-node
-          - name: ES_JAVA_OPTS
-            value: "-Xms512m -Xmx512m"
-          - name: xpack.security.enabled
-            value: "false"
+        - name: cluster.name
+          value: log-cruncher-cluster
+        - name: node.name
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: discovery.type
+          value: single-node
+        - name: bootstrap.memory_lock
+          value: "false"  # Changed to false to avoid IPC_LOCK issues
+        - name: ES_JAVA_OPTS
+          value: "-Xms512m -Xmx512m"
+        - name: xpack.security.enabled
+          value: "false"
+        - name: xpack.security.enrollment.enabled
+          value: "false"
+        - name: path.data
+          value: /usr/share/elasticsearch/data
+        - name: path.logs
+          value: /usr/share/elasticsearch/logs
+        resources:
+          limits:
+            memory: 1Gi
+            cpu: 1000m
+          requests:
+            memory: 512Mi
+            cpu: 500m
         volumeMounts:
-          - name: data
-            mountPath: /usr/share/elasticsearch/data
-
+        - name: data
+          mountPath: /usr/share/elasticsearch/data
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 60
+          periodSeconds: 20
   volumeClaimTemplates:
   - metadata:
       name: data
     spec:
-      storageClassName: elasticsearch-storage
-      accessModes:
-        - ReadWriteOnce
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: "standard"  # Use default storage class
       resources:
         requests:
-          storage: 8Gi
+          storage: 5Gi
