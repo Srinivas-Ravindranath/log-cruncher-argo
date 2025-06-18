@@ -58,19 +58,8 @@ spec:
                   app: elasticsearch
               topologyKey: kubernetes.io/hostname
 
-      initContainers:
-      # Remove the fix-permissions container - DaemonSet handles this
-      # - name: fix-permissions
-
-      - name: increase-vm-max-map-count
-        image: busybox:1.36
-        command:
-        - sysctl
-        - -w
-        - vm.max_map_count=262144
-        securityContext:
-          privileged: true
-          runAsUser: 0
+      # No init containers needed - DaemonSet handles everything
+      # initContainers removed to comply with non-root policy
 
       containers:
       - name: elasticsearch

@@ -4,7 +4,7 @@ metadata:
   name: elasticsearch-setup
   namespace: logging
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "0"  # Changed to 1
 spec:
   selector:
     matchLabels:
@@ -20,6 +20,7 @@ spec:
       securityContext:
         runAsUser: 0
         runAsGroup: 0
+        privileged: true  # Need privileged for sysctl
 
       containers:
       - name: setup
@@ -28,10 +29,24 @@ spec:
         - sh
         - -c
         - |
-          echo "Setting up Elasticsearch directories on $(hostname)"
+          echo "Setting up Elasticsearch on $(hostname)"
+          
+          # Set vm.max_map_count for Elasticsearch
+          echo "Setting vm.max_map_count=262144"
+          sysctl -w vm.max_map_count=262144
+          
+          # Make it persistent across reboots
+          if ! grep -q "vm.max_map_count" /host/etc/sysctl.conf; then
+            echo "vm.max_map_count=262144" >> /host/etc/sysctl.conf
+            echo "Added vm.max_map_count to sysctl.conf"
+          fi
+          
+          # Create Elasticsearch directories
+          echo "Creating directories..."
           mkdir -p /host/mnt/data/elasticsearch
           chown -R 1000:1000 /host/mnt/data/elasticsearch
           chmod -R 755 /host/mnt/data/elasticsearch
+          
           echo "Setup completed on $(hostname)"
           sleep 3600
 
