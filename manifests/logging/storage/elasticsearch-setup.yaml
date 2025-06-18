@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: elasticsearch-setup
+  namespace: logging
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  selector:
+    matchLabels:
+      name: elasticsearch-setup
+  template:
+    metadata:
+      labels:
+        name: elasticsearch-setup
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+
+      containers:
+      - name: setup
+        image: busybox:1.36
+        command:
+        - sh
+        - -c
+        - |
+          echo "Setting up Elasticsearch directories on $(hostname)"
+          mkdir -p /host/mnt/data/elasticsearch
+          chown -R 1000:1000 /host/mnt/data/elasticsearch
+          chmod -R 755 /host/mnt/data/elasticsearch
+          echo "Setup completed on $(hostname)"
+          sleep 3600
+
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+          type: Directory
+
+      tolerations:
+      - operator: Exists

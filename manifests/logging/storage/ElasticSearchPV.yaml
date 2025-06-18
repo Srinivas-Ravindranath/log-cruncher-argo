@@ -1,8 +1,9 @@
-# PV for worker-node-1
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: elasticsearch-pv-node1
+  name: elasticsearch-pv
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   capacity:
     storage: 15Gi
@@ -21,27 +22,4 @@ spec:
               operator: In
               values:
                 - worker-node-1
----
-# PV for worker-node-2
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: elasticsearch-pv-node2
-spec:
-  capacity:
-    storage: 15Gi
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: elasticsearch-storage
-  hostPath:
-    path: /mnt/data/elasticsearch
-    type: DirectoryOrCreate
-  persistentVolumeReclaimPolicy: Delete
-  nodeAffinity:
-    required:
-      nodeSelectorTermems:
-        - matchExpressions:
-            - key: kubernetes.io/hostname
-              operator: In
-              values:
                 - worker-node-2

@@ -3,6 +3,6 @@ kind: StorageClass
 metadata:
   name: elasticsearch-storage
   annotations:
-    storageclass.kubernetes.io/is-default-class: "true"
+    argocd.argoproj.io/sync-wave: "1"
 provisioner: kubernetes.io/no-provisioner
 volumeBindingMode: WaitForFirstConsumer
