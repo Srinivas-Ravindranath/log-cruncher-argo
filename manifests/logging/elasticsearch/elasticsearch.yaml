@@ -34,6 +34,21 @@ spec:
         runAsUser: 1000
         runAsNonRoot: true
 
+      # Only schedule on worker nodes (avoid control-plane)
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+
+      # Anti-affinity for future scaling
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: elasticsearch
+              topologyKey: kubernetes.io/hostname
+
       initContainers:
       # Fix permissions and clean up any stale lock files
       - name: fix-permissions
@@ -111,20 +126,24 @@ spec:
           httpGet:
             path: /_cluster/health
             port: 9200
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60      # Increased for local setup
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /_cluster/health
             port: 9200
-          initialDelaySeconds: 60
-          periodSeconds: 20
+          initialDelaySeconds: 120     # Increased for local setup
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
   volumeClaimTemplates:
   - metadata:
       name: data
     spec:
       accessModes: ["ReadWriteOnce"]
-      storageClassName: elasticsearch-storage # Use default storage class
+      storageClassName: elasticsearch-storage
       resources:
         requests:
-          storage: 5Gi
+          storage: 10Gi

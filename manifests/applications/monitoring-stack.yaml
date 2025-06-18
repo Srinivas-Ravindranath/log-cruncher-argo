@@ -8,9 +8,11 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: git@github.com:Srinivas-Ravindranath/log-cruncher-argo.git
-    targetRevision: HEAD
+    repoURL: https://github.com/Srinivas-Ravindranath/log-cruncher-argo.git
+    targetRevision: dev
     path: manifests/monitoring
+    directory:
+      recurse: true
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
