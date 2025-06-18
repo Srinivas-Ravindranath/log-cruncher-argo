@@ -146,4 +146,4 @@ spec:
       storageClassName: elasticsearch-storage
       resources:
         requests:
-          storage: 10Gi
+          storage: 15Gi
