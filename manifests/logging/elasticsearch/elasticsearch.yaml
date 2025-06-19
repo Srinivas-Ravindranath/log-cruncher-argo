@@ -46,7 +46,7 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-            - matchExpressions:
+            - matchExpressions:p
               - key: node-role.kubernetes.io/control-plane
                 operator: DoesNotExist
         podAntiAffinity:
