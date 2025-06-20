@@ -1,0 +1,176 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: production-app-config
+  namespace: sample-apps
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  app.py: |
+    #!/usr/bin/env python3
+    from flask import Flask, jsonify, request
+    import logging
+    import random
+    import time
+    import threading
+    from datetime import datetime
+    import uuid
+
+    app = Flask(__name__)
+
+    # Configure realistic production logging format
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    logger = logging.getLogger('ecommerce-api')
+    auth_logger = logging.getLogger('auth-service')
+    payment_logger = logging.getLogger('payment-service')
+    db_logger = logging.getLogger('database')
+
+    class ProductionLogGenerator:
+        def __init__(self):
+            self.real_errors = [
+                "Connection pool exhausted after 30 seconds",
+                "Deadlock detected during transaction rollback",
+                "MySQL server has gone away during query execution",
+                "HTTP 503 Service Unavailable from payment-gateway.stripe.com",
+                "SSL handshake failed with external API endpoint",
+                "Connection refused to redis://cache-cluster:6379",
+                "JWT token validation failed: signature invalid",
+                "User session expired after 24 hours of inactivity",
+                "Failed login attempt from IP 203.45.67.89 (attempt 5/5)",
+                "Failed to upload file to S3 bucket: Access Denied",
+                "Insufficient inventory: requested 5, available 2 for SKU 'LAPTOP-001'",
+                "Credit card declined: insufficient funds",
+                "Discount code 'SAVE20' has expired or reached usage limit"
+            ]
+            
+            self.warnings = [
+                "Database query execution time exceeded 2000ms",
+                "Memory usage reached 85% of allocated heap space",
+                "Connection pool running low: 2 connections remaining",
+                "Cache hit ratio dropped below 80%: current ratio 75.2%",
+                "Multiple failed login attempts detected for user 'admin@company.com'",
+                "SSL certificate expires in 14 days for domain api.company.com",
+                "Disk space usage at 90% on /var/log partition",
+                "Background job queue length exceeded 1000 items",
+                "Load balancer health check failed for 1 of 3 backend servers"
+            ]
+            
+            self.info_messages = [
+                "User logged in successfully",
+                "Order placed successfully",
+                "Payment processed",
+                "Inventory updated",
+                "User profile updated",
+                "Database backup completed successfully",
+                "Configuration reloaded from environment variables",
+                "Health check passed for all services"
+            ]
+
+        def log_info_message(self):
+            message = random.choice(self.info_messages)
+            user_id = f"user_{random.randint(10000, 99999)}"
+            
+            if "Order" in message:
+                order_id = f"ORD-{random.randint(100000, 999999)}"
+                logger.info(f"{message} | order_id={order_id} user_id={user_id}")
+            elif "Payment" in message:
+                payment_id = f"pay_{random.randint(10000000, 99999999)}"
+                amount = round(random.uniform(10.99, 299.99), 2)
+                payment_logger.info(f"{message} | payment_id={payment_id} amount=${amount}")
+            else:
+                logger.info(f"{message} | user_id={user_id}")
+
+        def log_warning_message(self):
+            warning = random.choice(self.warnings)
+            
+            if "Database" in warning:
+                query_time = random.randint(2000, 8000)
+                db_logger.warning(f"{warning} | execution_time={query_time}ms")
+            elif "login" in warning:
+                ip_addr = f"{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}"
+                auth_logger.warning(f"{warning} | source_ip={ip_addr}")
+            else:
+                logger.warning(f"{warning}")
+
+        def log_error_message(self):
+            error = random.choice(self.real_errors)
+            error_id = str(uuid.uuid4())
+            
+            if "Database" in error or "MySQL" in error:
+                db_logger.error(f"{error} | error_id={error_id}")
+            elif "HTTP" in error or "API" in error:
+                endpoint = random.choice(["payment-gateway.stripe.com", "api.sendgrid.com"])
+                logger.error(f"{error} | error_id={error_id} endpoint={endpoint}")
+            elif "JWT" in error or "session" in error:
+                user_id = f"user_{random.randint(10000, 99999)}"
+                auth_logger.error(f"{error} | error_id={error_id} user_id={user_id}")
+            else:
+                logger.error(f"{error} | error_id={error_id}")
+
+    log_gen = ProductionLogGenerator()
+
+    @app.route('/')
+    def home():
+        user_agent = request.headers.get('User-Agent', 'Unknown')
+        ip = request.remote_addr or '127.0.0.1'
+        logger.info(f"Homepage accessed | ip={ip} user_agent='{user_agent[:30]}...'")
+        
+        return jsonify({
+            "service": "ecommerce-api",
+            "status": "healthy", 
+            "version": "v2.1.4",
+            "timestamp": datetime.utcnow().isoformat()
+        })
+
+    @app.route('/api/health')
+    def health():
+        if random.random() < 0.05:
+            logger.warning("Health check detected elevated response times | avg_response_time=1.2s")
+            return jsonify({"status": "degraded"}), 200
+        
+        logger.info("Health check passed | all_services=healthy")
+        return jsonify({"status": "healthy"})
+
+    @app.route('/api/orders/<order_id>')
+    def get_order(order_id):
+        if random.random() < 0.03:
+            log_gen.log_error_message()
+            return jsonify({"error": "Database connection failed"}), 503
+        elif random.random() < 0.02:
+            auth_logger.error(f"Unauthorized access attempt to order {order_id}")
+            return jsonify({"error": "Unauthorized"}), 401
+        
+        logger.info(f"Order retrieved successfully | order_id={order_id}")
+        return jsonify({"order_id": order_id, "status": "shipped"})
+
+    def background_log_generator():
+        while True:
+            try:
+                time.sleep(864)  # ~14.4 minutes for 100 logs/day
+                
+                rand = random.random()
+                if rand < 0.7:
+                    log_gen.log_info_message()
+                elif rand < 0.9:
+                    log_gen.log_warning_message()
+                else:
+                    log_gen.log_error_message()
+                    
+            except Exception as e:
+                logger.error(f"Background log generator failed | error={str(e)}")
+                time.sleep(60)
+
+    if __name__ == '__main__':
+        bg_thread = threading.Thread(target=background_log_generator, daemon=True)
+        bg_thread.start()
+        
+        logger.info("Production API server starting | version=v2.1.4 port=5000")
+        app.run(host='0.0.0.0', port=5000, debug=False)
+
+  requirements.txt: |
+    flask==2.3.3
