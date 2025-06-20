@@ -40,15 +40,17 @@ data:
         Flush         5
         Log_Level     info
         Daemon        off
+        Parsers_File  parsers.conf
 
     [INPUT]
         Name              tail
         Tag               kube.*
         Path              /var/log/containers/*.log
-        Parser            docker
+        Parser            cri
         DB                /var/log/flb_kube.db
         Mem_Buf_Limit     50MB
         Skip_Long_Lines   On
+        Refresh_Interval  10
 
     [FILTER]
         Name                kubernetes
@@ -66,9 +68,16 @@ data:
         Host            elasticsearch
         Port            9200
         Index           kube-logs
-        Type            _doc
+        Suppress_Type_Name On
 
   parsers.conf: |
+    [PARSER]
+        Name        cri
+        Format      regex
+        Regex       ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<message>.*)$
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+
     [PARSER]
         Name        docker
         Format      json
